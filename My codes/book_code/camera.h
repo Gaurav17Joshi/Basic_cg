@@ -5,17 +5,22 @@
 
 #include "hittable.h"
 #include "color.h"
+#include "stb_image_write.h"
+
+#include <vector>
+#include <iostream>
 
 class camera {
   public:
     double aspect_ratio = 1.0;  // Ratio of image width over height
     int    image_width  = 100;  // Rendered image width in pixel count
     int    samples_per_pixel = 10;   // Count of random samples for each pixel
+    point3 center = point3(0,0,0); // Camera center
 
-    void render(const hittable& world) {
+    void render(const hittable& world, const char* filename) {
         initialize();
 
-        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+        std::vector<unsigned char> image_data(image_width * image_height * 3);
 
         for (int j = 0; j < image_height; j++) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
@@ -25,16 +30,32 @@ class camera {
                     ray r = get_ray(i, j);
                     pixel_color += ray_color(r, world);
                 }
-                write_color(std::cout, pixel_color, samples_per_pixel);
+
+                // Get the color and write it to the buffer
+                auto r = pixel_color.x();
+                auto g = pixel_color.y();
+                auto b = pixel_color.z();
+
+                // Divide the color by the number of samples.
+                auto scale = 1.0 / samples_per_pixel;
+                r *= scale;
+                g *= scale;
+                b *= scale;
+
+                int index = (j * image_width + i) * 3;
+                image_data[index + 0] = static_cast<unsigned char>(256 * clamp(r, 0.0, 0.999));
+                image_data[index + 1] = static_cast<unsigned char>(256 * clamp(g, 0.0, 0.999));
+                image_data[index + 2] = static_cast<unsigned char>(256 * clamp(b, 0.0, 0.999));
             }
         }
+
+        stbi_write_png(filename, image_width, image_height, 3, image_data.data(), image_width * 3);
 
         std::clog << "\rDone.                 \n";
     }
 
   private:
     int    image_height;   // Rendered image height
-    point3 center;         // Camera center
     point3 pixel00_loc;    // Location of pixel 0, 0
     vec3   pixel_delta_u;  // Offset to pixel to the right
     vec3   pixel_delta_v;  // Offset to pixel below
@@ -42,8 +63,6 @@ class camera {
     void initialize() {
         image_height = int(image_width / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
-
-        center = point3(0, 0, 0);
 
         // Determine viewport dimensions.
         auto focal_length = 1.0;
@@ -81,6 +100,12 @@ class camera {
         auto px = -0.5 + random_double();
         auto py = -0.5 + random_double();
         return (px * pixel_delta_u) + (py * pixel_delta_v);
+    }
+    
+    double clamp(double x, double min, double max) const {
+        if (x < min) return min;
+        if (x > max) return max;
+        return x;
     }
 
     color ray_color(const ray& r, const hittable& world) const {

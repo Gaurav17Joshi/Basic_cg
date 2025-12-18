@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Ray Tracer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Interactive Ray Tracer</h1>
+    <div id="container">
+        <div id="controls">
+            <button class="up" onclick="moveCamera(0, 1, 0)">Up</button>
+            <button class="left" onclick="moveCamera(-1, 0, 0)">Left</button>
+            <button class="right" onclick="moveCamera(1, 0, 0)">Right</button>
+            <button class="down" onclick="moveCamera(0, -1, 0)">Down</button>
+            <button class="zoom-in" onclick="moveCamera(0, 0, 1)">Zoom In</button>
+            <button class="zoom-out" onclick="moveCamera(0, 0, -1)">Zoom Out</button>
+        </div>
+        <div id="image-container">
+            <img id="raytrace-image" src="" alt="Rendered Image">
+            <div id="loading-spinner"></div>
+        </div>
+    </div>
+    <p>Click the buttons to move the camera. Please be patient, each render takes a moment.</p>
+
+    <script>
+        let camera = { x: 0, y: 0, z: 0 };
+        const imageElement = document.getElementById('raytrace-image');
+        const spinnerElement = document.getElementById('loading-spinner');
+
+        function moveCamera(dx, dy, dz) {
+            camera.x += dx;
+            camera.y += dy;
+            camera.z += dz;
+            updateImage();
+        }
+
+        function updateImage() {
+            spinnerElement.style.display = 'block';
+            imageElement.style.opacity = 0.5;
+            
+            // Use a timestamp to prevent the browser from caching the image
+            const url = `/render?x=${camera.x}&y=${camera.y}&z=${camera.z}&t=${new Date().getTime()}`;
+            
+            // Preload the image before showing it
+            const preloader = new Image();
+            preloader.onload = () => {
+                imageElement.src = preloader.src;
+                spinnerElement.style.display = 'none';
+                imageElement.style.opacity = 1;
+            };
+            preloader.src = url;
+        }
+
+        // Initial load
+        window.onload = updateImage;
+    </script>
+</body>
+</html>
