@@ -32,7 +32,8 @@ class interval {
     static const interval empty, universe;
 };
 
-const interval interval::empty    = interval(+infinity, -infinity);
-const interval interval::universe = interval(-infinity, +infinity);
+// Use inline definitions to prevent linker errors
+inline const interval interval::empty    = interval(+infinity, -infinity);
+inline const interval interval::universe = interval(-infinity, +infinity);
 
 #endif

@@ -2,72 +2,58 @@
 #define CAMERA_H
 
 #include "rtweekend.h"
-
-#include "hittable.h"
 #include "color.h"
-#include "stb_image_write.h"
-
-#include <vector>
+#include "hittable.h"
+#include "material.h"
 #include <iostream>
 
+// Represents the virtual camera from which rays are cast.
 class camera {
   public:
     double aspect_ratio = 1.0;  // Ratio of image width over height
     int    image_width  = 100;  // Rendered image width in pixel count
     int    samples_per_pixel = 10;   // Count of random samples for each pixel
-    point3 center = point3(0,0,0); // Camera center
+    int    max_depth = 10;   // Maximum number of ray bounces
 
-    void render(const hittable& world, const char* filename) {
+    // Renders the scene and writes the output to a PPM stream.
+    void render(const hittable& world) {
         initialize();
 
-        std::vector<unsigned char> image_data(image_width * image_height * 3);
+        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
-        for (int j = 0; j < image_height; j++) {
+        for (int j = 0; j < image_height; ++j) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
-            for (int i = 0; i < image_width; i++) {
+            for (int i = 0; i < image_width; ++i) {
                 color pixel_color(0,0,0);
-                for (int sample = 0; sample < samples_per_pixel; sample++) {
+                for (int sample = 0; sample < samples_per_pixel; ++sample) {
                     ray r = get_ray(i, j);
-                    pixel_color += ray_color(r, world);
+                    pixel_color += ray_color(r, world, max_depth);
                 }
-
-                // Get the color and write it to the buffer
-                auto r = pixel_color.x();
-                auto g = pixel_color.y();
-                auto b = pixel_color.z();
-
-                // Divide the color by the number of samples.
-                auto scale = 1.0 / samples_per_pixel;
-                r *= scale;
-                g *= scale;
-                b *= scale;
-
-                int index = (j * image_width + i) * 3;
-                image_data[index + 0] = static_cast<unsigned char>(256 * clamp(r, 0.0, 0.999));
-                image_data[index + 1] = static_cast<unsigned char>(256 * clamp(g, 0.0, 0.999));
-                image_data[index + 2] = static_cast<unsigned char>(256 * clamp(b, 0.0, 0.999));
+                write_color(std::cout, pixel_color, samples_per_pixel);
             }
         }
 
-        stbi_write_png(filename, image_width, image_height, 3, image_data.data(), image_width * 3);
-
-        std::clog << "\rDone.                 \n";
+        std::clog << "\rDone.\n";
     }
 
   private:
     int    image_height;   // Rendered image height
+    point3 center;         // Camera center
     point3 pixel00_loc;    // Location of pixel 0, 0
     vec3   pixel_delta_u;  // Offset to pixel to the right
     vec3   pixel_delta_v;  // Offset to pixel below
 
+    // Initializes camera parameters based on public settings.
     void initialize() {
-        image_height = int(image_width / aspect_ratio);
+        image_height = static_cast<int>(image_width / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
+
+        center = point3(0, 0, 0);
 
         // Determine viewport dimensions.
         auto focal_length = 1.0;
         auto viewport_height = 2.0;
-        auto viewport_width = viewport_height * (double(image_width)/image_height);
+        auto viewport_width = viewport_height * (static_cast<double>(image_width)/image_height);
 
         // Calculate the vectors across the horizontal and down the vertical viewport edges.
         auto viewport_u = vec3(viewport_width, 0, 0);
@@ -78,14 +64,12 @@ class camera {
         pixel_delta_v = viewport_v / image_height;
 
         // Calculate the location of the upper left pixel.
-        auto viewport_upper_left =
-            center - vec3(0, 0, focal_length) - viewport_u/2 - viewport_v/2;
+        auto viewport_upper_left = center - vec3(0, 0, focal_length) - viewport_u/2 - viewport_v/2;
         pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
     }
 
+    // Generates a randomly sampled camera ray for the pixel at (i, j).
     ray get_ray(int i, int j) const {
-        // Get a randomly-sampled camera ray for the pixel at location i,j.
-
         auto pixel_center = pixel00_loc + (i * pixel_delta_u) + (j * pixel_delta_v);
         auto pixel_sample = pixel_center + pixel_sample_square();
 
@@ -95,28 +79,32 @@ class camera {
         return ray(ray_origin, ray_direction);
     }
 
+    // Returns a random point in the square surrounding a pixel at the origin.
     vec3 pixel_sample_square() const {
-        // Returns a random point in the square surrounding a pixel at the origin.
         auto px = -0.5 + random_double();
         auto py = -0.5 + random_double();
         return (px * pixel_delta_u) + (py * pixel_delta_v);
     }
-    
-    double clamp(double x, double min, double max) const {
-        if (x < min) return min;
-        if (x > max) return max;
-        return x;
-    }
 
-    color ray_color(const ray& r, const hittable& world) const {
+    // Calculates the color of a ray.
+    color ray_color(const ray& r, const hittable& world, int depth) const {
         hit_record rec;
 
+        // If we've exceeded the ray bounce limit, no more light is gathered.
+        if (depth <= 0)
+            return color(0,0,0);
+
         if (world.hit(r, interval(0.001, infinity), rec)) {
-            return 0.5 * (rec.normal + color(1,1,1));
+            ray scattered;
+            color attenuation;
+            if (rec.mat->scatter(r, rec, attenuation, scattered))
+                return attenuation * ray_color(scattered, world, depth-1);
+            return color(0,0,0);
         }
 
+        // If the ray hits nothing, return the background color.
         vec3 unit_direction = unit_vector(r.direction());
-        auto a = 0.5*(unit_direction.y() + 1.0);
+        auto a = 0.5 * (unit_direction.y() + 1.0);
         return (1.0-a)*color(1.0, 1.0, 1.0) + a*color(0.5, 0.7, 1.0);
     }
 };
