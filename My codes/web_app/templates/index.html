@@ -7,54 +7,221 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <div id="status-display">
+        <div id="status-spinner" class="spinner"></div>
+        <div id="status-checkmark" style="display: none;">&#10004;</div>
+        <p id="status-text">Initializing...</p>
+    </div>
+
     <h1>Interactive Ray Tracer</h1>
     <div id="container">
-        <div id="controls">
-            <button class="up" onclick="moveCamera(0, 1, 0)">Up</button>
-            <button class="left" onclick="moveCamera(-1, 0, 0)">Left</button>
-            <button class="right" onclick="moveCamera(1, 0, 0)">Right</button>
-            <button class="down" onclick="moveCamera(0, -1, 0)">Down</button>
-            <button class="zoom-in" onclick="moveCamera(0, 0, 1)">Zoom In</button>
-            <button class="zoom-out" onclick="moveCamera(0, 0, -1)">Zoom Out</button>
-        </div>
         <div id="image-container">
             <img id="raytrace-image" src="" alt="Rendered Image">
-            <div id="loading-spinner"></div>
+        </div>
+        <div id="controls">
+            <div class="control-group">
+                <label for="theta-slider">Theta (θ): <span id="theta-value">60</span>°</label>
+                <div class="slider-container">
+                    <input type="range" id="theta-slider" min="0" max="360" value="60" class="slider">
+                    <input type="number" id="theta-input" min="0" max="360" value="60" class="value-input">
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="phi-slider">Phi (φ): <span id="phi-value">75</span>°</label>
+                <div class="slider-container">
+                    <input type="range" id="phi-slider" min="5" max="175" value="75" class="slider">
+                    <input type="number" id="phi-input" min="5" max="175" value="75" class="value-input">
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="r-slider">Radius (R): <span id="r-value">15.0</span></label>
+                <div class="slider-container">
+                    <input type="range" id="r-slider" min="1" max="50" value="15.0" step="0.1" class="slider">
+                    <input type="number" id="r-input" min="1" max="50" value="15.0" step="0.1" class="value-input">
+                </div>
+            </div>
+            <div class="four-param-row">
+                <div class="control-group">
+                    <label for="samples-input">Samples/Pixel</label>
+                    <input type="number" id="samples-input" min="1" max="500" value="10" class="value-input">
+                </div>
+                <div class="control-group">
+                    <label for="depth-input">Max Depth</label>
+                    <input type="number" id="depth-input" min="1" max="100" value="10" class="value-input">
+                </div>
+                <div class="control-group">
+                    <label for="width-input">Image Width (px)</label>
+                    <input type="number" id="width-input" min="100" max="1920" value="1200" step="10" class="value-input">
+                </div>
+                <div class="control-group">
+                    <label for="aspect-input">Aspect Ratio</label>
+                    <input type="number" id="aspect-input" min="0.5" max="3" value="1.777" step="0.001" class="value-input">
+                </div>
+            </div>
         </div>
     </div>
-    <p>Click the buttons to move the camera. Please be patient, each render takes a moment.</p>
+    <p>Adjust the sliders and values to change render settings. The render will update progressively.</p>
 
     <script>
-        let camera = { x: 0, y: 0, z: 0 };
+        const params = {
+            theta: 60, phi: 75, r: 15.0,
+            vfov: 20, samples: 10, depth: 10,
+            width: 1200, aspect: 16/9,
+        };
+
         const imageElement = document.getElementById('raytrace-image');
-        const spinnerElement = document.getElementById('loading-spinner');
+        const statusDisplay = {
+            spinner: document.getElementById('status-spinner'),
+            checkmark: document.getElementById('status-checkmark'),
+            text: document.getElementById('status-text')
+        };
+        const ui = {
+            theta: { slider: document.getElementById('theta-slider'), input: document.getElementById('theta-input'), valueLabel: document.getElementById('theta-value') },
+            phi:   { slider: document.getElementById('phi-slider'),   input: document.getElementById('phi-input'),   valueLabel: document.getElementById('phi-value') },
+            r:     { slider: document.getElementById('r-slider'),     input: document.getElementById('r-input'),     valueLabel: document.getElementById('r-value') },
+            samples: { input: document.getElementById('samples-input') },
+            depth:   { input: document.getElementById('depth-input') },
+            width:   { input: document.getElementById('width-input') },
+            aspect:  { input: document.getElementById('aspect-input') }
+        };
 
-        function moveCamera(dx, dy, dz) {
-            camera.x += dx;
-            camera.y += dy;
-            camera.z += dz;
-            updateImage();
+        let debounceTimeout;
+        let imagePoller;
+        let renderStartTime;
+        let sampleTimestamps = [];
+
+        function setStatus(state, data) {
+            if (state === 'rendering') {
+                statusDisplay.spinner.style.display = 'block';
+                statusDisplay.checkmark.style.display = 'none';
+                
+                const { current_sample, total_samples } = data;
+                if (current_sample > sampleTimestamps.length) {
+                    sampleTimestamps.push(Date.now());
+                }
+                
+                let eta = '...';
+                if (sampleTimestamps.length > 1) {
+                    const avgTimePerSample = (sampleTimestamps[sampleTimestamps.length - 1] - sampleTimestamps[0]) / (sampleTimestamps.length - 1) / 1000;
+                    const remainingSamples = total_samples - current_sample;
+                    const remainingSeconds = Math.round(remainingSamples * avgTimePerSample);
+                    eta = `${remainingSeconds}s`;
+                }
+                statusDisplay.text.textContent = `Rendering... (${current_sample}/${total_samples}) | Est. ${eta}`;
+
+            } else if (state === 'completed') {
+                statusDisplay.spinner.style.display = 'none';
+                statusDisplay.checkmark.style.display = 'block';
+                const totalTime = ((Date.now() - renderStartTime) / 1000).toFixed(1);
+                statusDisplay.text.textContent = `Rendering Complete (${totalTime}s)`;
+            } else { // initializing
+                statusDisplay.spinner.style.display = 'block';
+                statusDisplay.checkmark.style.display = 'none';
+                statusDisplay.text.textContent = 'Initializing Render...';
+            }
+        }
+        
+        async function startRender() {
+            clearInterval(imagePoller);
+            sampleTimestamps = [];
+            renderStartTime = Date.now();
+            setStatus('initializing');
+
+            const thetaRad = params.theta * Math.PI / 180;
+            const phiRad   = params.phi * Math.PI / 180;
+            const x = params.r * Math.sin(phiRad) * Math.cos(thetaRad);
+            const y = params.r * Math.cos(phiRad);
+            const z = params.r * Math.sin(phiRad) * Math.sin(thetaRad);
+            
+            const url = new URL(window.location.origin + '/start_render');
+            url.searchParams.set('x', x.toFixed(2));
+            url.searchParams.set('y', y.toFixed(2));
+            url.searchParams.set('z', z.toFixed(2));
+            url.searchParams.set('vfov', params.vfov);
+            url.searchParams.set('samples', params.samples);
+            url.searchParams.set('depth', params.depth);
+            url.searchParams.set('width', params.width);
+            url.searchParams.set('aspect', params.aspect.toFixed(3));
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.status === 'started') {
+                    imagePoller = setInterval(pollImageAndStatus, 500);
+                }
+            } catch (error) {
+                console.error("Error starting render:", error);
+                setStatus('error');
+            }
         }
 
-        function updateImage() {
-            spinnerElement.style.display = 'block';
-            imageElement.style.opacity = 0.5;
-            
-            // Use a timestamp to prevent the browser from caching the image
-            const url = `/render?x=${camera.x}&y=${camera.y}&z=${camera.z}&t=${new Date().getTime()}`;
-            
-            // Preload the image before showing it
-            const preloader = new Image();
-            preloader.onload = () => {
-                imageElement.src = preloader.src;
-                spinnerElement.style.display = 'none';
-                imageElement.style.opacity = 1;
-            };
-            preloader.src = url;
+        async function pollImageAndStatus() {
+            try {
+                const statusResponse = await fetch(`/render_status?t=${Date.now()}`);
+                const statusData = await statusResponse.json();
+                
+                // Refresh image first to show latest progress
+                imageElement.src = `/get_image?t=${Date.now()}`;
+                
+                if (statusData.status === 'completed') {
+                    clearInterval(imagePoller);
+                    setStatus('completed');
+                } else if (statusData.status === 'rendering') {
+                    setStatus('rendering', statusData);
+                }
+            } catch (error) {
+                console.error("Error polling:", error);
+                clearInterval(imagePoller);
+            }
         }
 
-        // Initial load
-        window.onload = updateImage;
+        function debounce(func, delay) {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(func, delay);
+        }
+
+        // --- Simplified Event Handling ---
+        
+        // Groups with sliders and number inputs
+        ['theta', 'phi', 'r'].forEach(key => {
+            const { slider, input, valueLabel } = ui[key];
+            
+            slider.addEventListener('input', () => {
+                const value = parseFloat(slider.value);
+                params[key] = value;
+                input.value = value.toFixed(key === 'r' ? 1 : 0);
+                if (valueLabel) valueLabel.textContent = Math.round(value);
+                debounce(startRender, 400);
+            });
+
+            input.addEventListener('change', () => {
+                const value = parseFloat(input.value);
+                params[key] = value;
+                slider.value = value;
+                if (valueLabel) valueLabel.textContent = Math.round(value);
+                startRender();
+            });
+        });
+
+        // Groups with only number inputs
+        ['samples', 'depth', 'width', 'aspect'].forEach(key => {
+            const { input } = ui[key];
+            input.addEventListener('change', () => {
+                params[key] = parseFloat(input.value);
+                startRender();
+            });
+        });
+
+        window.onload = () => {
+            for (const key in ui) {
+                const control = ui[key];
+                const value = params[key];
+                if (control.slider) control.slider.value = value;
+                if (control.input) control.input.value = value.toFixed(key === 'aspect' ? 3 : (key === 'r' ? 1 : 0));
+                if (control.valueLabel) control.valueLabel.textContent = Math.round(value);
+            }
+            startRender();
+        };
     </script>
 </body>
 </html>
