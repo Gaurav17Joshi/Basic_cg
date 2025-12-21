@@ -1,3 +1,7 @@
+// Defines the color type alias and the write_color function.
+// The write_color function handles per-sample scaling, gamma correction,
+// and writing the final RGB color values to an output stream.
+
 #ifndef COLOR_H
 #define COLOR_H
 

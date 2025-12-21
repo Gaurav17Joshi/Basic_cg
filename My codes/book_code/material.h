@@ -1,3 +1,7 @@
+// This file defines the abstract material base class, which provides the interface
+// for how rays interact with surfaces. It includes concrete implementations for
+// lambertian (diffuse), metal (reflective), and dielectric (refractive) materials.
+
 #ifndef MATERIAL_H
 #define MATERIAL_H
 
@@ -5,15 +9,23 @@
 
 class hit_record;
 
+// Abstract base class for all materials.
+// The core function is scatter(), which determines how a ray behaves when it hits the material.
 class material {
   public:
     virtual ~material() = default;
 
+    // Computes a scattered ray based on the hit record and material properties.
+    // r_in: The incoming ray.
+    // rec: The hit_record of the intersection.
+    // attenuation: The color attenuation of the material.
+    // scattered: The resulting scattered ray.
     virtual bool scatter(
         const ray& r_in, const hit_record& rec, color& attenuation, ray& scattered
     ) const = 0;
 };
 
+// A diffuse (matte) material.
 class lambertian : public material {
   public:
     lambertian(const color& a) : albedo(a) {}
@@ -22,6 +34,7 @@ class lambertian : public material {
     const override {
         auto scatter_direction = rec.normal + random_unit_vector();
 
+        // Catch degenerate scatter direction
         if (scatter_direction.near_zero())
             scatter_direction = rec.normal;
 
@@ -34,6 +47,7 @@ class lambertian : public material {
     color albedo;
 };
 
+// A metallic material.
 class metal : public material {
   public:
     metal(const color& a, double f) : albedo(a), fuzz(f < 1 ? f : 1) {}

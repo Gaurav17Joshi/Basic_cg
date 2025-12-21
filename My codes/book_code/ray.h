@@ -1,3 +1,6 @@
+// This file defines the ray class, which is represented by an origin
+// and a direction. It provides a function to calculate a point along the ray.
+
 #ifndef RAY_H
 #define RAY_H
 

@@ -1,3 +1,8 @@
+// This file defines the interval class, a simple utility class
+// to store a range of real numbers. It provides methods for checking
+// if a value is contained within the interval and for clamping a value
+// to the interval's range.
+
 #ifndef INTERVAL_H
 #define INTERVAL_H
 

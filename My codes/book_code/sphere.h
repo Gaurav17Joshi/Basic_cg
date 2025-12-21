@@ -1,3 +1,7 @@
+// This file defines the sphere class, a type of hittable object.
+// It includes logic to determine if a ray intersects the sphere and to
+// calculate intersection details like the normal and intersection point.
+
 #ifndef SPHERE_H
 #define SPHERE_H
 

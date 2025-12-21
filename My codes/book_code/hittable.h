@@ -1,3 +1,7 @@
+// This file defines the hittable abstract base class, which represents any object
+// that can be hit by a ray. It also defines the hit_record struct, which is used
+// to store information about a ray-object intersection.
+
 #ifndef HITTABLE_H
 #define HITTABLE_H
 
@@ -5,6 +9,7 @@
 
 class material; // Forward declaration
 
+// Stores information about a ray-object intersection.
 class hit_record {
   public:
     point3 p;
@@ -19,6 +24,7 @@ class hit_record {
     }
 };
 
+// Abstract class for objects that can be hit by a ray.
 class hittable {
   public:
     virtual ~hittable() = default;

@@ -1,3 +1,7 @@
+// This file defines the hittable_list class, which is a container for a list
+// of hittable objects. It allows a ray to be tested for intersection against
+// all objects in the list.
+
 #ifndef HITTABLE_LIST_H
 #define HITTABLE_LIST_H
 
