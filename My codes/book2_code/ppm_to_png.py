@@ -1,6 +1,7 @@
 from PIL import Image
 import sys
 
+
 def ppm_to_png(ppm_file_path, png_file_path):
     try:
         # Open the PPM file
@@ -14,6 +15,7 @@ def ppm_to_png(ppm_file_path, png_file_path):
         print(f"An error occurred during conversion: {e}")
 
 if __name__ == "__main__":
+
     if len(sys.argv) != 3:
         print("Usage: python ppm_to_png.py <input.ppm> <output.png>")
         sys.exit(1)
