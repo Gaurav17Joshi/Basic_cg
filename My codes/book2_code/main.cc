@@ -11,6 +11,8 @@
 #include "quad.h"
 #include "bvh.h"
 #include "texture.h"
+#include "triangle.h"
+#include <vector>
 
 void bouncing_spheres() {
     hittable_list world;
@@ -184,12 +186,65 @@ void quads() {
     cam.render(world);
 }
 
+void triangle_scene() {
+    hittable_list world;
+
+    int grid_size = 20;
+    std::vector<std::vector<point3>> vertices(grid_size, std::vector<point3>(grid_size));
+
+    auto ground_material = make_shared<lambertian>(color(0.5, 0.5, 0.5));
+
+    for (int i = 0; i < grid_size; ++i) {
+        for (int j = 0; j < grid_size; ++j) {
+            double x = (i - grid_size/2.0);
+            double z = (j - grid_size/2.0);
+            double y = 0.5 * (sin(x*0.5) + cos(z*0.5));
+            vertices[i][j] = point3(x, y, z);
+        }
+    }
+
+    for (int i = 0; i < grid_size - 1; ++i) {
+        for (int j = 0; j < grid_size - 1; ++j) {
+            point3 v00 = vertices[i][j];
+            point3 v10 = vertices[i+1][j];
+            point3 v01 = vertices[i][j+1];
+            point3 v11 = vertices[i+1][j+1];
+
+            auto mat1 = make_shared<lambertian>(color(0.2, 0.8, 0.2));
+            auto mat2 = make_shared<lambertian>(color(0.2, 0.7, 0.2));
+
+            world.add(make_shared<triangle>(v00, v10 - v00, v01 - v00, ( (i+j)%2==0 ? mat1 : mat2) ));
+            world.add(make_shared<triangle>(v11, v01 - v11, v10 - v11, ( (i+j)%2==0 ? mat1 : mat2) ));
+        }
+    }
+
+    auto sphere_mat = make_shared<metal>(color(0.8, 0.6, 0.2), 0.1);
+    world.add(make_shared<sphere>(point3(0, 3, -3), 1.5, sphere_mat));
+
+    camera cam;
+    cam.aspect_ratio      = 16.0 / 9.0;
+    cam.image_width       = 800;
+    cam.samples_per_pixel = 50;
+    cam.max_depth         = 20;
+    // cam.background        = color(0.70, 0.80, 1.00);
+
+    cam.vfov     = 60;
+    cam.lookfrom = point3(-5, 5, 0);
+    cam.lookat   = point3(0, 0, -5);
+    cam.vup      = vec3(0,1,0);
+
+    cam.defocus_angle = 0;
+
+    cam.render(world);
+}
+
 int main() {
-    switch (5) {
+    switch (6) {
         case 1:  bouncing_spheres();   break;
         case 2:  checkered_spheres();  break;
         case 3:  earth();              break;
         case 4:  perlin_spheres();     break;
         case 5:  quads();              break;
+        case 6:  triangle_scene();     break;
     }
 }
