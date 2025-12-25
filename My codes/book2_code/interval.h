@@ -49,7 +49,15 @@ class interval {
 };
 
 // Use inline definitions to prevent linker errors
-inline const interval interval::empty    = interval(+infinity, -infinity);
-inline const interval interval::universe = interval(-infinity, +infinity);
+const inline const interval interval::empty    = interval(+infinity, -infinity);
+const inline const interval interval::universe = interval(-infinity, +infinity);
+
+interval operator+(const interval& ival, double displacement) {
+    return interval(ival.min + displacement, ival.max + displacement);
+}
+
+interval operator+(double displacement, const interval& ival) {
+    return ival + displacement;
+}
 
 #endif
