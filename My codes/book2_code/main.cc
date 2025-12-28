@@ -450,6 +450,6 @@ int main() {
         case 7:  simple_light();       break;
         case 8:  cornell_box();        break;
         case 9:  cornell_smoke();      break;
-        case 10:  final_scene(800, 10000, 40); break;
+        case 10:  final_scene(800, 5000, 40); break;
     }
 }
