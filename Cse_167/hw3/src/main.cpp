@@ -64,16 +64,17 @@ color3 ray_color(const Ray& r, const Scene& scene, int depth) {
         return color3(0,0,0);
     }
 
-    HitRecord rec;
-    float closest_t = std::numeric_limits<float>::max(); // Initialize with a very large value
-
+    HitRecord rec; // This will hold the final, closest hit
+    HitRecord temp_rec; // Temporary record for each object test
     bool hit_anything = false;
+    float closest_t = std::numeric_limits<float>::max();
+
     // Iterate through all objects to find the closest intersection
     for (const auto& object : scene.objects) {
-        if (object->intersect(r, EPSILON, closest_t, rec)) { // Use EPSILON as t_min to avoid self-intersection
+        if (object->intersect(r, EPSILON, closest_t, temp_rec)) { // Use temp_rec
             hit_anything = true;
-            closest_t = rec.t;
-            // The HitRecord `rec` is updated by reference with the closest hit information
+            closest_t = temp_rec.t;
+            rec = temp_rec; // Copy temp_rec to rec only when a new closest hit is found
         }
     }
 
@@ -131,8 +132,10 @@ color3 ray_color(const Ray& r, const Scene& scene, int depth) {
 
     }
 
-    // If no object is hit, return black.
-    return color3(0.0, 0.0, 0.0);
+    // If no object is hit, return the background color (blue-to-white gradient)
+    glm::vec3 unit_direction = glm::normalize(r.direction);
+    auto t = 0.5f * (unit_direction.y + 1.0f);
+    return (1.0f - t) * color3(1.0, 1.0, 1.0) + t * color3(0.5, 0.7, 1.0);
 }
 
 void parse_scene(const std::string& filename, Scene& scene) {

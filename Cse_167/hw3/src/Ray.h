@@ -7,8 +7,8 @@
 using point3 = glm::vec3;
 using color3 = glm::vec3;
 
-// Epsilon for floating point comparisons (now using GLM types)
-const float EPSILON = 0.0000001;
+// Epsilon for floating point comparisons and shadow ray offsets
+const float EPSILON = 1e-4f;
 
 class Ray {
 public:
