@@ -1,15 +1,16 @@
 #ifndef RAY_H
 #define RAY_H
 
-#include <glm/glm.hpp> // Core GLM library
+#include <glm/glm.hpp>
 
-// Type aliases for glm::vec3
+// Type aliases for GLM vector types
 using point3 = glm::vec3;
 using color3 = glm::vec3;
 
 // Epsilon for floating point comparisons and shadow ray offsets
 const float EPSILON = 1e-4f;
 
+// Represents a 3D ray with an origin point and a direction vector.
 class Ray {
 public:
     point3 origin;

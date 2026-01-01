@@ -1,48 +1,38 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-#include "Ray.h" // Includes GLM types for point3
+#include "Ray.h"
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp> // For lookAt, perspective
-#include <glm/gtc/constants.hpp> // For glm::pi
+#include <glm/gtc/constants.hpp>
 #include <cmath>
 
+// Defines the virtual camera for the scene, including its position, orientation, and field of view.
 class Camera {
 public:
     point3 lookfrom;
     point3 lookat;
     glm::vec3 up;
-    float fovy; // vertical field of view in degrees
+    float fovy;
 
     Camera() : lookfrom(0,0,0), lookat(0,0,-1), up(0,1,0), fovy(45) {}
-
     Camera(point3 lookfrom, point3 lookat, glm::vec3 up, float fovy)
         : lookfrom(lookfrom), lookat(lookat), up(up), fovy(fovy) {}
 
-    // Generate a ray for a given pixel coordinate (u, v)
-    // (u, v) are normalized coordinates from 0 to 1
     Ray get_ray(float u, float v, float aspect_ratio) const {
-        // Based on the camera parameters, compute the coordinate frame
-        // glm::vec3 w = glm::normalize(lookfrom - lookat);
-        // glm::vec3 u_cam = glm::normalize(glm::cross(up, w));
-        // glm::vec3 v_cam = glm::cross(w, u_cam);
-        // The above is the traditional way. Below is a more direct approach using GLM lookAt.
+        glm::vec3 w = glm::normalize(lookfrom - lookat);
+        glm::vec3 u_cam = glm::normalize(glm::cross(up, w));
+        glm::vec3 v_cam = glm::cross(w, u_cam);
 
-        // Calculate the view basis vectors (right, up, forward)
-        glm::vec3 w = glm::normalize(lookfrom - lookat); // Z-axis of camera (forward)
-        glm::vec3 u_cam = glm::normalize(glm::cross(up, w)); // X-axis of camera (right)
-        glm::vec3 v_cam = glm::cross(w, u_cam); // Y-axis of camera (up) - ensure it's orthogonal
-
-        // Convert fov from degrees to radians for tan
         auto theta = fovy * glm::pi<float>() / 180.0f;
         auto half_height = glm::tan(theta / 2.0f);
         auto half_width = aspect_ratio * half_height;
+        glm::vec3 horizontal = 2.0f * half_width * u_cam;
+        glm::vec3 vertical = 2.0f * half_height * v_cam;
 
-        // Position of the viewport (at distance 1 from camera)
-        point3 lower_left_corner = lookfrom - half_width * u_cam - half_height * v_cam - w;
+        point3 lower_left_corner = lookfrom - (horizontal / 2.0f) - (vertical / 2.0f) - w;
 
-        // Corrected ray generation:
-        return Ray(lookfrom, glm::normalize(lower_left_corner + u * (2 * half_width * u_cam) + v * (2 * half_height * v_cam) - lookfrom));
+        glm::vec3 direction = lower_left_corner + u * horizontal + v * vertical - lookfrom;
+        return Ray(lookfrom, glm::normalize(direction));
     }
 };
 

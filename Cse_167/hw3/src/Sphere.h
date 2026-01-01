@@ -2,18 +2,18 @@
 #define SPHERE_H
 
 #include "Hittable.h"
-#include "Material.h" // Include Material
-#include <glm/glm.hpp> // Core GLM library
-#include <cmath> // For std::sqrt
+#include "Material.h"
+#include <glm/glm.hpp>
+#include <cmath>
 
+// A sphere primitive, defined by a center point and a radius.
 class Sphere : public Hittable {
 public:
     point3 center;
     float radius;
-    Material material; // Add material
+    Material material;
 
-    Sphere() : center(0,0,0), radius(1.0f) {}
-    Sphere(point3 cen, float r, const Material& mat) : center(cen), radius(r), material(mat) {} // Updated constructor
+    Sphere(point3 cen, float r, const Material& mat) : center(cen), radius(r), material(mat) {}
 
     virtual bool intersect(const Ray& r, float t_min, float t_max, HitRecord& rec) const override {
         glm::vec3 oc = r.origin - center;
@@ -23,17 +23,17 @@ public:
         float discriminant = half_b*half_b - a*c;
 
         if (discriminant < 0) {
-            return false; // No real roots, no intersection
+            return false;
         }
         
         float sqrt_d = std::sqrt(discriminant);
 
-        // Find the nearest root that lies within the acceptable range [t_min, t_max]
+        // Find the nearest root that lies within the acceptable range.
         float root = (-half_b - sqrt_d) / a;
         if (root < t_min || root > t_max) {
             root = (-half_b + sqrt_d) / a;
             if (root < t_min || root > t_max) {
-                return false; // No intersection in the valid range
+                return false;
             }
         }
 
@@ -41,7 +41,7 @@ public:
         rec.p = r.at(rec.t);
         glm::vec3 outward_normal = (rec.p - center) / radius;
         rec.set_face_normal(r, outward_normal);
-        rec.material = &material; // Store pointer to material in hit record
+        rec.material = &material;
 
         return true;
     }
